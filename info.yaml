@@ -87,7 +87,7 @@ documentation:
     - Binv (i)
     - OP[0] (i)
     - OP[1] (i)
-    - unused
+    - Blsr (i)
     - unused
     - unused
 

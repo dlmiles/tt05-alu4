@@ -11,6 +11,7 @@
 // 2 bits width
 `define UI3_OP_BITID 3
 `define OP_WIDTH 2
+`define UI5_LSR_BITID 5
 
 //// ui_in
 // ui_in[3:0] a
@@ -42,6 +43,7 @@ module tt_um_dlmiles_alu4 (
     localparam UI1_BZERO_BITID    = `UI1_BZERO_BITID;
     localparam UI2_BINV_BITID     = `UI2_BINV_BITID;
     localparam UI3_OP_BITID       = `UI3_OP_BITID;
+    localparam UI5_LSR_BITID      = `UI5_LSR_BITID;
 
     localparam O5_OVERFLOW_BITID  = `O5_OVERFLOW_BITID;
     localparam O6_ZERO_BITID      = `O6_ZERO_BITID;
@@ -64,6 +66,7 @@ module tt_um_dlmiles_alu4 (
     wire [WIDTH-1:0]        b;
     wire                    b_inv;
     wire                    b_zero;
+    wire                    b_lsr;
     wire                    y;
     wire [OP_WIDTH-1:0]     op;
 
@@ -73,12 +76,16 @@ module tt_um_dlmiles_alu4 (
     assign b_zero = uio_in[UI1_BZERO_BITID];
     assign b_inv  = uio_in[UI2_BINV_BITID];
     assign op     = uio_in[UI3_OP_BITID +: OP_WIDTH];
+    assign b_lsr  = uio_in[UI5_LSR_BITID];
 
     // setup nets for outputs
     wire              overflow;
     wire              zero;
     wire              c;
     wire [WIDTH-1:0]  s;
+
+    wire [WIDTH-1:0]  b_after_lsr;
+    assign b_after_lsr = b_lsr ? {y,b[WIDTH-1:1]} : b;
 
     alu4 #(
         .WIDTH     (WIDTH)
@@ -89,7 +96,7 @@ module tt_um_dlmiles_alu4 (
         .overflow  (overflow),  // o
 
         .a         (a),         // i
-        .b         (b),         // i
+        .b         (b_after_lsr), // i
         .b_zero    (b_zero),    // i
         .b_inv     (b_inv),     // i
         .y         (y),         // i
