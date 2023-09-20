@@ -48,13 +48,20 @@ documentation:
       SEB (set-inverted-bits, OR ~B)
       ALL0
       ALL1
-      
+
       OP == 2'b00 SUM (ADD, SUB, ADC, SBC)
       OP == 2'b01 AND
       OP == 2'b10 OR
       OP == 2'b11 XOR
 
-      logical-shift-right (being considered)
+      ~14 operation is around 52 signal-function-logic-cell (2 x AND2, 2 x OR2, 2 x XOR2, 1 x INV, 5 x MUX2) per bit.
+      Plus ~total-bits minus 1 for Zero (assuming cascaded OR2), Plus 2 x XOR2 for Overflow.
+
+      Adding logical-shift-right adds another (1 x AND2, 1 x OR2) per bit, plus 1 x INV.  Which effectively constructs
+      an N-bit MUX2 with OR output joiner.
+
+      The ALU used in a CPU has some common B input requirements, NORMAL, ZERO (all bit reset), ONE (the value one, bit0 set),
+      LSR1 (logical shift right).
 
 # Instructions on how someone could test your project, include things like what buttons do what and how to set the clock if needed
   how_to_test:  |

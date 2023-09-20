@@ -8,10 +8,16 @@
 `define UI0_CARRY_BITID 0
 `define UI1_BZERO_BITID 1
 `define UI2_BINV_BITID 2
-// 2 bits width
+// 4 bits width
 `define UI3_OP_BITID 3
-`define OP_WIDTH 2
+`define OP_WIDTH 4
 `define UI5_LSR_BITID 5
+
+`define OP_0_NORMAL 0
+`define OP_1_ONE 1
+`define OP_2_RESET 2
+`define OP_3_LSR 3
+
 
 //// ui_in
 // ui_in[3:0] a
@@ -84,8 +90,40 @@ module tt_um_dlmiles_alu4 (
     wire              c;
     wire [WIDTH-1:0]  s;
 
-    wire [WIDTH-1:0]  b_after_lsr;
-    assign b_after_lsr = b_lsr ? {y,b[WIDTH-1:1]} : b;
+    // FIXME experiment if zero->lsr->inv is a better order
+    wire [WIDTH-1:0]  b_after_op;
+
+    wire [WIDTH-1:0] b_after_op_NORMAL;
+    wire [WIDTH-1:0] b_after_op_ONE;
+    wire [WIDTH-1:0] b_after_op_CLEAR;
+    wire [WIDTH-1:0] b_after_op_LSR;
+
+    assign b_after_op_NORMAL = b;
+    assign b_after_op_ONE    = {{WIDTH-1{1'b0}},1'b1};
+    assign b_after_op_CLEAR  = {WIDTH{1'b0}};
+    assign b_after_op_LSR    = {y,b[WIDTH-1:1]};
+
+    assign b_after_op = op[3] ?
+      (op[2] ? b_after_op_LSR : b_after_op_CLEAR) :     // 2'b11  :  2'b10
+      (op[2] ? b_after_op_ONE : b_after_op_NORMAL)      // 2'b01  :  2'b00
+    ;
+
+//    wire [1:0] op_b_mode;
+//    assign op_b_mode = op[3:2];
+//
+//    always @(op_b_mode/* or b or y*/) begin
+//       case (op_b_mode)
+//          // NORMAL
+//          2'b00: b_after_op <= b;
+//          // ONE (value 0x01)
+//          2'b01: b_after_op <= {{WIDTH-1{1'b0}},1'b1};
+//          // CLEAR (all bits clear)
+//          2'b10: b_after_op <= {WIDTH{1'b0}};
+//          // LSR (logical-shift-right)
+//          2'b11: b_after_op <= {y,b[WIDTH-1:1]};
+//       endcase
+//    end
+    //assign b_after_op = b_lsr ? {y,b[WIDTH-1:1]} : b;
 
     alu4 #(
         .WIDTH     (WIDTH)
@@ -96,11 +134,11 @@ module tt_um_dlmiles_alu4 (
         .overflow  (overflow),  // o
 
         .a         (a),         // i
-        .b         (b_after_lsr), // i
-        .b_zero    (b_zero),    // i
+        .b         (b_after_op),// i
+        .b_zero    (1'b0),      // i (was: b_zero, redundant feature, set op[1:0] = 2'b10)
         .b_inv     (b_inv),     // i
         .y         (y),         // i
-        .op        (op)         // i
+        .op        (op[1:0])    // i
     );
 
     assign uo_out[WIDTH-1:0]         = s;

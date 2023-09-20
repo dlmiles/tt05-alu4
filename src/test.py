@@ -16,13 +16,26 @@ def report(dut, ui_in, uio_in):
     carry_in = True if(uio_in.is_resolvable and uio_in & 0x01) else False
     bzero    = True if(uio_in.is_resolvable and uio_in & 0x02) else False
     binv     = True if(uio_in.is_resolvable and uio_in & 0x04) else False
-    blsr     = True if(uio_in.is_resolvable and uio_in & 0x20) else False
+    bmnorm   = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x00) else False
+    bmone    = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x20) else False
+    bmclear  = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x40) else False
+    bmlsr    = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x60) else False
 
     s_op_kind = ''
     s_op_kind += 'C ' if carry_in else '  '
     s_op_kind += 'BZ' if bzero else '__'
     s_op_kind += 'BI' if binv else '__'
-    s_op_kind += 'BR' if blsr else '__'
+    #s_op_kind += 'BR' if bmlsr else '__'
+
+    s_op_bmode = ''
+    if bmnorm:
+        s_op_bmode = 'NORM '
+    elif bmone:
+        s_op_bmode = 'ONE  '
+    elif bmclear:
+        s_op_bmode = 'CLEAR'
+    elif bmlsr:
+        s_op_bmode = 'LSR  '
 
     if uio_in & 0x18 == 0x00:
         s_op = 'SUM'
@@ -83,7 +96,7 @@ def report(dut, ui_in, uio_in):
     if s16 == 0xf:
         s_extra += '111()'
 
-    dut._log.info(f"in={str(ui_in)} {str(uio_in)}  out={str(uo_out)} {str(uio_out)}   {s_op_kind} {s_op} {a:3d} {s_op_symbol} {b:3d} [{a_signed:4d} {s_op_symbol} {b_signed:4d}]  =  {s:3d} [{s_signed:4d}] {s_carry} {s_ezero} {s_eover} {s_extra}")
+    dut._log.info(f"in={str(ui_in)} {str(uio_in)}  out={str(uo_out)} {str(uio_out)}   {s_op_kind} {s_op} {s_op_bmode} {a:3d} {s_op_symbol} {b:3d} [{a_signed:4d} {s_op_symbol} {b_signed:4d}]  =  {s:3d} [{s_signed:4d}] {s_carry} {s_ezero} {s_eover} {s_extra}")
 
 
 @cocotb.test()
@@ -112,8 +125,8 @@ async def test_alu(dut):
 
     # SUM XOR AND OR
     for uio_in_op in [0x00, 0x08, 0x10, 0x18]:
-        # NOR Bzero Binv Bzero&Binv ... Blsr
-        for uio_in_mode in [0x00, 0x02, 0x04, 0x06, 0x20, 0x22, 0x24, 0x26]:
+        # NOR Bzero Binv Bzero&Binv ... Bnorm Bone Bclear Blsr
+        for uio_in_mode in [0x00, 0x02, 0x04, 0x06, 0x20, 0x22, 0x24, 0x26, 0x40, 0x42, 0x44, 0x46, 0x60, 0x62, 0x64, 0x66]:
             for uio_in_carry in [0, 1]:	# uio_in bit0
                 uio_in = uio_in_carry
                 uio_in |= uio_in_mode
