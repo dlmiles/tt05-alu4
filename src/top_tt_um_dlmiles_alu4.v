@@ -6,17 +6,27 @@
 //// uio_in
 // uio_in[5:0] a
 `define UI0_CARRY_BITID 0
-`define UI1_BZERO_BITID 1
-`define UI2_BINV_BITID 2
-// 4 bits width
-`define UI3_OP_BITID 3
-`define OP_WIDTH 4
-`define UI5_LSR_BITID 5
+`define UI1_BINV_BITID 1
+// 6 bits width
+`define UI2_OP_BITID 2
 
-`define OP_0_NORMAL 0
-`define OP_1_ONE 1
-`define OP_2_RESET 2
-`define OP_3_LSR 3
+`define OP_WIDTH 6
+
+// uio_in[3:2]
+`define OP_A_0_SUM    0
+`define OP_A_1_OR     1
+`define OP_A_2_AND    2
+`define OP_A_3_XOR    3
+// uio_in[5:4]
+`define OP_Y_0_NORMAL 0
+`define OP_Y_1_LSB    1
+`define OP_Y_2_RESET  2
+`define OP_Y_3_MSB    3
+// uio_in[7:6]
+`define OP_B_0_NORMAL 0
+`define OP_B_1_ONE    1
+`define OP_B_2_RESET  2
+`define OP_B_3_LSR    3
 
 
 //// ui_in
@@ -41,15 +51,14 @@ module tt_um_dlmiles_alu4 (
 );
 
     localparam WIDTH = 4;
+    localparam MSB = WIDTH-1;
 
     // backtick notation is not nice to work with, so making it a localparam let us use it without backtick :)
     localparam OP_WIDTH           = `OP_WIDTH;
 
     localparam UI0_CARRY_BITID    = `UI0_CARRY_BITID;
-    localparam UI1_BZERO_BITID    = `UI1_BZERO_BITID;
-    localparam UI2_BINV_BITID     = `UI2_BINV_BITID;
-    localparam UI3_OP_BITID       = `UI3_OP_BITID;
-    localparam UI5_LSR_BITID      = `UI5_LSR_BITID;
+    localparam UI1_BINV_BITID     = `UI1_BINV_BITID;
+    localparam UI2_OP_BITID       = `UI2_OP_BITID;
 
     localparam O5_OVERFLOW_BITID  = `O5_OVERFLOW_BITID;
     localparam O6_ZERO_BITID      = `O6_ZERO_BITID;
@@ -71,18 +80,14 @@ module tt_um_dlmiles_alu4 (
     wire [WIDTH-1:0]        a;
     wire [WIDTH-1:0]        b;
     wire                    b_inv;
-    wire                    b_zero;
-    wire                    b_lsr;
     wire                    y;
     wire [OP_WIDTH-1:0]     op;
 
     assign a      = ui_in[0 +: WIDTH];
     assign b      = ui_in[WIDTH +: WIDTH];
     assign y      = uio_in[UI0_CARRY_BITID];
-    assign b_zero = uio_in[UI1_BZERO_BITID];
-    assign b_inv  = uio_in[UI2_BINV_BITID];
-    assign op     = uio_in[UI3_OP_BITID +: OP_WIDTH];
-    assign b_lsr  = uio_in[UI5_LSR_BITID];
+    assign b_inv  = uio_in[UI1_BINV_BITID];
+    assign op     = uio_in[UI2_OP_BITID +: OP_WIDTH];
 
     // setup nets for outputs
     wire              overflow;
@@ -90,40 +95,52 @@ module tt_um_dlmiles_alu4 (
     wire              c;
     wire [WIDTH-1:0]  s;
 
+
     // FIXME experiment if zero->lsr->inv is a better order
-    wire [WIDTH-1:0]  b_after_op;
 
-    wire [WIDTH-1:0] b_after_op_NORMAL;
-    wire [WIDTH-1:0] b_after_op_ONE;
-    wire [WIDTH-1:0] b_after_op_CLEAR;
-    wire [WIDTH-1:0] b_after_op_LSR;
 
-    assign b_after_op_NORMAL = b;
-    assign b_after_op_ONE    = {{WIDTH-1{1'b0}},1'b1};
-    assign b_after_op_CLEAR  = {WIDTH{1'b0}};
-    assign b_after_op_LSR    = {y,b[WIDTH-1:1]};
+    // CARRY_IN (control)
+    wire              y_after_op;
 
-    assign b_after_op = op[3] ?
-      (op[2] ? b_after_op_LSR : b_after_op_CLEAR) :     // 2'b11  :  2'b10
-      (op[2] ? b_after_op_ONE : b_after_op_NORMAL)      // 2'b01  :  2'b00
+    wire              y_after_op_NORMAL;
+    wire              y_after_op_ONE;
+    wire              y_after_op_ZERO;
+    wire              y_after_op_MSB;
+
+    assign y_after_op_NORMAL = y;
+    assign y_after_op_ONE    = 1'b1;
+    assign y_after_op_ZERO   = 1'b0;
+    // This occurs on B because the LSR is also on B (maybe we can improve that and move to A?)
+    assign y_after_op_MSB    = b[MSB];	// ASR, set-sign-from-carry
+
+    assign y_after_op = op[3] ?
+      (op[2] ? y_after_op_MSB : y_after_op_ZERO) :	// 2'b11  :  2'b10
+      (op[2] ? y_after_op_ONE : y_after_op_NORMAL)	// 2'b01  :  2'b00
     ;
 
-//    wire [1:0] op_b_mode;
-//    assign op_b_mode = op[3:2];
-//
-//    always @(op_b_mode/* or b or y*/) begin
-//       case (op_b_mode)
-//          // NORMAL
-//          2'b00: b_after_op <= b;
-//          // ONE (value 0x01)
-//          2'b01: b_after_op <= {{WIDTH-1{1'b0}},1'b1};
-//          // CLEAR (all bits clear)
-//          2'b10: b_after_op <= {WIDTH{1'b0}};
-//          // LSR (logical-shift-right)
-//          2'b11: b_after_op <= {y,b[WIDTH-1:1]};
-//       endcase
-//    end
-    //assign b_after_op = b_lsr ? {y,b[WIDTH-1:1]} : b;
+
+    // B operand (control)
+    wire [WIDTH-1:0]  b_after_op;
+
+    wire [WIDTH-1:0]  b_after_op_NORMAL;
+    wire [WIDTH-1:0]  b_after_op_LSB;
+    wire [WIDTH-1:0]  b_after_op_CLEAR;
+    wire [WIDTH-1:0]  b_after_op_LSR;
+
+    assign b_after_op_NORMAL = b;
+    // This is interesting, we needed the value ONE (at B) mainly for DECREMENT (while also
+    //   making the CARRY_IN=1 and Binvert) but at that time the CARRY_IN is always set
+    // INCREMENT-by-ONE is easier by using the CARRY_IN to provide +1.
+    assign b_after_op_LSB    = {{WIDTH-1{1'b0}},y_after_op};  // {{WIDTH-1{1'b0}},1'b1}
+    // So can we remove CLEAR and use LSB above when freeing up a mode? 
+    assign b_after_op_CLEAR  = {WIDTH{1'b0}};
+    assign b_after_op_LSR    = {y_after_op,b[WIDTH-1:1]};
+
+    assign b_after_op = op[5] ?
+      (op[4] ? b_after_op_LSR : b_after_op_CLEAR) :     // 2'b11  :  2'b10
+      (op[4] ? b_after_op_LSB : b_after_op_NORMAL)      // 2'b01  :  2'b00
+    ;
+
 
     alu4 #(
         .WIDTH     (WIDTH)
@@ -135,9 +152,8 @@ module tt_um_dlmiles_alu4 (
 
         .a         (a),         // i
         .b         (b_after_op),// i
-        .b_zero    (1'b0),      // i (was: b_zero, redundant feature, set op[1:0] = 2'b10)
         .b_inv     (b_inv),     // i
-        .y         (y),         // i
+        .y         (y_after_op),// i
         .op        (op[1:0])    // i
     );
 

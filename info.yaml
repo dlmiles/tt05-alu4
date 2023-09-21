@@ -24,7 +24,7 @@ yaml_version: 4
 # Here is a great example: https://github.com/davidsiaw/tt02-davidsiaw-stackcalc/blob/38c5647f83aad2aec675d566aa3d67b98f0aac81/info.yaml
 documentation: 
   author:       "Darryl Miles"
-  title:        "ALU unit (4-bit ~14 operation)"
+  title:        "ALU unit (4-bit ~18 operation)"
   language:     "Verilog"
   description:  "Combinational Arithmetic Logic Unit"
 
@@ -32,6 +32,7 @@ documentation:
   how_it_works: |
       Combinational arithmetic logic unit (no clock in use)
       Has ZERO and OVERFLOW outputs.
+      Achieves operations in around 67 sky130 cells.
 
       TODO
       
@@ -44,15 +45,29 @@ documentation:
       ONES (invert)
       TWOS (negate)
       CLB (clear-bits, AND ~B)
-      TOB (toggle-inverted-bits, XOR ~B)
-      SEB (set-inverted-bits, OR ~B)
-      ALL0
-      ALL1
+      TOB (toggle-inverted-bits, XOR ~B, free op)
+      SEB (set-inverted-bits, OR ~B, free op)
+      ALL0 (all bits clear at output)
+      ALL1 (all bits set at output)
+      INC1 (increment by one, there is also ADD+carry_in+Bzero)
+      DEC1 (decrement by one)
+      LSR (with/without carry_in at MSB)
+      ASR
 
-      OP == 2'b00 SUM (ADD, SUB, ADC, SBC)
-      OP == 2'b01 AND
-      OP == 2'b10 OR
-      OP == 2'b11 XOR
+      OP_A_MODE == 2'b00 SUM (ADD, SUB, ADC, SBC, LSL)
+      OP_A_MODE == 2'b01 AND
+      OP_A_MODE == 2'b10 OR
+      OP_A_MODE == 2'b11 XOR
+
+      OP_Y_MODE == 2'b00 NORMAL
+      OP_Y_MODE == 2'b01 SET (set to 1)
+      OP_Y_MODE == 2'b10 CLEAR (set to 0)
+      OP_Y_MODE == 2'b11 MSB (taken from B[MSB])
+
+      OP_B_MODE == 2'b00 NORMAL
+      OP_B_MODE == 2'b01 ONELSB (set B[LSB] from CARRY_IN, mainly for decrement by one use case)
+      OP_B_MODE == 2'b10 CLEAR (all bits reset, was called Bzero)
+      OP_B_MODE == 2'b11 LSR (logical shift right, with carry_in at MSB)
 
       ~14 operation is around 52 signal-function-logic-cell (2 x AND2, 2 x OR2, 2 x XOR2, 1 x INV, 5 x MUX2) per bit.
       Plus ~total-bits minus 1 for Zero (assuming cascaded OR2), Plus 2 x XOR2 for Overflow.
@@ -90,13 +105,13 @@ documentation:
 # A description of what the bidirectional I/O pins do (e.g. I2C SDA, I2C SCL, etc)
   bidirectional:
     - carry_in (i)
-    - Bzero (i)
     - Binv (i)
-    - OP[0] (i)
-    - OP[1] (i)
-    - Blsr (i)
-    - unused
-    - unused
+    - OP_A_MODE[0] (i)
+    - OP_A_MODE[1] (i)
+    - OP_Y_MODE[0] (i)
+    - OP_Y_MODE[1] (i)
+    - OP_B_MODE[0] (i)
+    - OP_B_MODE[1] (i)
 
 # The following fields are optional
   tag:          "alu"      # comma separated list of tags: test, encryption, experiment, clock, animation, utility, industrial, pwm, fpga, alu, microprocessor, risc, riscv, sensor, signal generator, fft, filter, music, bcd, sound, serial, timer, random number generator, calculator, decoder, counter, puzzle, multiplier, game, oscillator,

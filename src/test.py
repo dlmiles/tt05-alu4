@@ -3,6 +3,27 @@ from cocotb.clock import Clock
 from cocotb.binary import BinaryValue
 from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 
+OP_A_MASK   = 0x0c	# 0x08|0x04
+OP_Y_MASK   = 0x30	# 0x80|0x40
+OP_B_MASK   = 0xc0
+
+OP_A_SUM    = 0x00
+OP_A_OR     = 0x04
+OP_A_AND    = 0x08
+OP_A_XOR    = 0x0c
+
+OP_Y_NORM   = 0x00
+OP_Y_SET    = 0x10
+OP_Y_CLEAR  = 0x20
+OP_Y_MSB    = 0x30
+
+OP_B_NORM   = 0x00
+OP_B_ONELSB = 0x40
+OP_B_CLEAR  = 0x80
+OP_B_LSR    = 0xc0
+
+
+
 
 def report(dut, ui_in, uio_in):
     uio_out = dut.uio_out.value
@@ -13,19 +34,31 @@ def report(dut, ui_in, uio_in):
     s_carry = 'CARRY' if(uo_out.is_resolvable and uo_out & 0x80) else '     '
     carry_out = True  if(uo_out.is_resolvable and uo_out & 0x80) else False
 
+
     carry_in = True if(uio_in.is_resolvable and uio_in & 0x01) else False
-    bzero    = True if(uio_in.is_resolvable and uio_in & 0x02) else False
-    binv     = True if(uio_in.is_resolvable and uio_in & 0x04) else False
-    bmnorm   = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x00) else False
-    bmone    = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x20) else False
-    bmclear  = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x40) else False
-    bmlsr    = True if(uio_in.is_resolvable and uio_in & 0x60 == 0x60) else False
+    binv     = True if(uio_in.is_resolvable and uio_in & 0x02) else False
+    ymnorm   = True if(uio_in.is_resolvable and uio_in & OP_Y_MASK == OP_Y_NORM)   else False
+    ymset    = True if(uio_in.is_resolvable and uio_in & OP_Y_MASK == OP_Y_SET)    else False
+    ymclear  = True if(uio_in.is_resolvable and uio_in & OP_Y_MASK == OP_Y_CLEAR)  else False
+    ymmsb    = True if(uio_in.is_resolvable and uio_in & OP_Y_MASK == OP_Y_MSB)    else False
+    bmnorm   = True if(uio_in.is_resolvable and uio_in & OP_B_MASK == OP_B_NORM)   else False
+    bmone    = True if(uio_in.is_resolvable and uio_in & OP_B_MASK == OP_B_ONELSB) else False
+    bmclear  = True if(uio_in.is_resolvable and uio_in & OP_B_MASK == OP_B_CLEAR)  else False
+    bmlsr    = True if(uio_in.is_resolvable and uio_in & OP_B_MASK == OP_B_LSR)    else False
 
     s_op_kind = ''
     s_op_kind += 'C ' if carry_in else '  '
-    s_op_kind += 'BZ' if bzero else '__'
-    s_op_kind += 'BI' if binv else '__'
-    #s_op_kind += 'BR' if bmlsr else '__'
+    s_op_kind += 'BI' if binv else '  '
+
+    s_op_ymode = ''
+    if ymnorm:
+        s_op_ymode = 'NORM '
+    elif ymset:
+        s_op_ymode = 'SET  '
+    elif ymclear:
+        s_op_ymode = 'CLEAR'
+    elif ymmsb:
+        s_op_ymode = 'MSB  '
 
     s_op_bmode = ''
     if bmnorm:
@@ -37,19 +70,19 @@ def report(dut, ui_in, uio_in):
     elif bmlsr:
         s_op_bmode = 'LSR  '
 
-    if uio_in & 0x18 == 0x00:
+    if uio_in & OP_A_MASK == 0x00:
         s_op = 'SUM'
         s_op_symbol = '+'
         if binv & carry_in:
             s_op = 'SUB'
             s_op_symbol = '-'
-    elif uio_in & 0x18 == 0x08:
+    elif uio_in & OP_A_MASK == 0x04:
         s_op = 'AND'
         s_op_symbol = '&'
-    elif uio_in & 0x18 == 0x10:
+    elif uio_in & OP_A_MASK == 0x08:
         s_op = 'OR'
         s_op_symbol = '|'
-    else: # 0x18
+    else: # OP_A_MASK
         s_op = 'XOR'
         s_op_symbol = '^'
 
@@ -96,7 +129,7 @@ def report(dut, ui_in, uio_in):
     if s16 == 0xf:
         s_extra += '111()'
 
-    dut._log.info(f"in={str(ui_in)} {str(uio_in)}  out={str(uo_out)} {str(uio_out)}   {s_op_kind} {s_op} {s_op_bmode} {a:3d} {s_op_symbol} {b:3d} [{a_signed:4d} {s_op_symbol} {b_signed:4d}]  =  {s:3d} [{s_signed:4d}] {s_carry} {s_ezero} {s_eover} {s_extra}")
+    dut._log.info(f"in={str(ui_in)} {str(uio_in)}  out={str(uo_out)} {str(uio_out)}   {s_op_kind} {s_op} {s_op_ymode} {s_op_bmode} {a:3d} {s_op_symbol} {b:3d} [{a_signed:4d} {s_op_symbol} {b_signed:4d}]  =  {s:3d} [{s_signed:4d}] {s_carry} {s_ezero} {s_eover} {s_extra}")
 
 
 @cocotb.test()
@@ -123,10 +156,21 @@ async def test_alu(dut):
     dut.rst_n.value = 1		# come out of reset
     await ClockCycles(dut.clk, 2)
 
+    A_MODES = [
+        OP_A_SUM, OP_A_OR, OP_A_AND, OP_A_OR
+    ]
+
+    YB_MODES = [
+        OP_Y_NORM|OP_B_NORM,   OP_Y_SET|OP_B_NORM,    OP_Y_CLEAR|OP_B_NORM,   OP_Y_MSB|OP_B_NORM,
+        OP_Y_NORM|OP_B_ONELSB, OP_Y_SET|OP_B_ONELSB,  OP_Y_CLEAR|OP_B_ONELSB, OP_Y_MSB|OP_B_ONELSB,
+        OP_Y_NORM|OP_B_CLEAR,  OP_Y_SET|OP_B_CLEAR,   OP_Y_CLEAR|OP_B_CLEAR,  OP_Y_MSB|OP_B_CLEAR,
+        OP_Y_NORM|OP_B_LSR,    OP_Y_SET|OP_B_LSR,     OP_Y_CLEAR|OP_B_LSR,    OP_Y_MSB|OP_B_LSR
+    ]
+
     # SUM XOR AND OR
-    for uio_in_op in [0x00, 0x08, 0x10, 0x18]:
+    for uio_in_op in A_MODES:
         # NOR Bzero Binv Bzero&Binv ... Bnorm Bone Bclear Blsr
-        for uio_in_mode in [0x00, 0x02, 0x04, 0x06, 0x20, 0x22, 0x24, 0x26, 0x40, 0x42, 0x44, 0x46, 0x60, 0x62, 0x64, 0x66]:
+        for uio_in_mode in YB_MODES:
             for uio_in_carry in [0, 1]:	# uio_in bit0
                 uio_in = uio_in_carry
                 uio_in |= uio_in_mode

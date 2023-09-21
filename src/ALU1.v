@@ -11,7 +11,7 @@ module ALU1 (
 
   input  wire        a,
   input  wire        b,
-  input  wire        b_zero,  // force b input to zero
+  //input  wire        b_zero,  // force b input to zero
   input  wire        b_inv,   // invert b path
                               // effective_b = (b_inv ? (b_zero ? 0 : b)
                               // i z b  effective_b  (b_inv, b_zero, b)
@@ -86,7 +86,7 @@ module ALU1 (
 
   // resolve effective_b first action: b_zero
   wire b_with_zero;
-  assign b_with_zero = b_zero ? 1'b0 : b;
+  assign b_with_zero = /*b_zero ? 1'b0 : */ b;
 
   // resolve effective_b second action: invert
   wire effective_b;

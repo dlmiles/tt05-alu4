@@ -15,7 +15,6 @@ module alu4 #(
   input wire  [WIDTH-1:0]  a,
 
   input wire  [WIDTH-1:0]  b,
-  input wire               b_zero,
   input wire               b_inv,
 
   input wire               y,		// carry-in
@@ -41,7 +40,6 @@ module alu4 #(
           .a      (a[i]),       // i
           .b      (b[i]),       // i
           .b_inv  (b_inv),      // i
-          .b_zero (b_zero),     // i
           .y      (carry[i]),   // i
           .op     (op)          // i
         );
