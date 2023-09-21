@@ -106,16 +106,24 @@ module tt_um_dlmiles_alu4 (
     wire              y_after_op_ONE;
     wire              y_after_op_ZERO;
     wire              y_after_op_MSB;
+    wire              y_after_op_LSB;
 
     assign y_after_op_NORMAL = y;
     assign y_after_op_ONE    = 1'b1;
     assign y_after_op_ZERO   = 1'b0;
     // This occurs on B because the LSR is also on B (maybe we can improve that and move to A?)
-    assign y_after_op_MSB    = b[MSB];	// ASR, set-sign-from-carry
+    // Trying for LSR on A
+    assign y_after_op_MSB    = a[MSB];	// ASR, ROL?, set-sign-from-carry
+    assign y_after_op_LSB    = a[0];	// ROR?
+
+    wire              y_after_op_MSBLSB;
+
+    // lets see if we can use this b_inv control bit more
+    assign y_after_op_MSBLSB = b_inv ? y_after_op_LSB : y_after_op_MSB;
 
     assign y_after_op = op[3] ?
-      (op[2] ? y_after_op_MSB : y_after_op_ZERO) :	// 2'b11  :  2'b10
-      (op[2] ? y_after_op_ONE : y_after_op_NORMAL)	// 2'b01  :  2'b00
+      (op[2] ? y_after_op_MSBLSB : y_after_op_ZERO) :	// 2'b11  :  2'b10
+      (op[2] ? y_after_op_ONE    : y_after_op_NORMAL)	// 2'b01  :  2'b00
     ;
 
 
@@ -125,7 +133,7 @@ module tt_um_dlmiles_alu4 (
     wire [WIDTH-1:0]  b_after_op_NORMAL;
     wire [WIDTH-1:0]  b_after_op_LSB;
     wire [WIDTH-1:0]  b_after_op_CLEAR;
-    wire [WIDTH-1:0]  b_after_op_LSR;
+    wire [WIDTH-1:0]  b_after_op_LSR;		// not used
 
     assign b_after_op_NORMAL = b;
     // This is interesting, we needed the value ONE (at B) mainly for DECREMENT (while also
@@ -134,12 +142,31 @@ module tt_um_dlmiles_alu4 (
     assign b_after_op_LSB    = {{WIDTH-1{1'b0}},y_after_op};  // {{WIDTH-1{1'b0}},1'b1}
     // So can we remove CLEAR and use LSB above when freeing up a mode? 
     assign b_after_op_CLEAR  = {WIDTH{1'b0}};
-    assign b_after_op_LSR    = {y_after_op,b[WIDTH-1:1]};
+    assign b_after_op_LSR    = {y_after_op,b[WIDTH-1:1]};	// not used
+
+    wire           b_after_op_LSLLSR;
+
+    // When in LSLLSR mode want:
+    //  ROR: CLEAR to invert to 0xff op=AND  (b_mode=LSLLSR, y_mode=MSBLSB,        b_inv=1)
+    //  ASR: CLEAR to 0x00 op=OR             (b_mode=LSLLSR, y_mode=MSBLSB,        b_inv=0)
+    //  LSR: CLEAR to 0x00 op=OR             (b_mode=LSLLSR, y_mode=NORM|ZERO|ONE, b_inv=0)
+    //  ROL: n/a op=SUM(add) with A==B Y=MSB (b_mode=ADD,    y_mode=MSBLSB,        b_inv=0)
+    //  LSL: n/a op=SUM(add) with A==B and Y (b_mode=NORM,   y_mode=NORM|ZERO|ONE, b_inv=0)
+    assign b_after_op_LSLLSR = b_inv ? b_after_op_CLEAR : b_after_op_NORMAL;
 
     assign b_after_op = op[5] ?
-      (op[4] ? b_after_op_LSR : b_after_op_CLEAR) :     // 2'b11  :  2'b10
-      (op[4] ? b_after_op_LSB : b_after_op_NORMAL)      // 2'b01  :  2'b00
+      (op[4] ? b_after_op_CLEAR  : b_after_op_CLEAR) :     // 2'b11  :  2'b10
+      (op[4] ? b_after_op_LSB    : b_after_op_NORMAL)      // 2'b01  :  2'b00
     ;
+
+    // A operand (control)
+    wire [WIDTH-1:0]  a_after_op;
+
+    wire [WIDTH-1:0]  a_after_op_LSR;
+
+    assign a_after_op_LSR    = {y_after_op,a[WIDTH-1:1]};
+
+    assign a_after_op = (op[4] & op[5]) ? a_after_op_LSR : a;
 
 
     alu4 #(
@@ -150,7 +177,7 @@ module tt_um_dlmiles_alu4 (
         .zero      (zero),      // o
         .overflow  (overflow),  // o
 
-        .a         (a),         // i
+        .a         (a_after_op),// i
         .b         (b_after_op),// i
         .b_inv     (b_inv),     // i
         .y         (y_after_op),// i
