@@ -111,8 +111,6 @@ module tt_um_dlmiles_alu4 (
     assign y_after_op_NORMAL = y;
     assign y_after_op_ONE    = 1'b1;
     assign y_after_op_ZERO   = 1'b0;
-    // This occurs on B because the LSR is also on B (maybe we can improve that and move to A?)
-    // Trying for LSR on A
     assign y_after_op_MSB    = a[MSB];	// ASR, ROL?, set-sign-from-carry
     assign y_after_op_LSB    = a[0];	// ROR?
 
@@ -139,21 +137,22 @@ module tt_um_dlmiles_alu4 (
     // This is interesting, we needed the value ONE (at B) mainly for DECREMENT (while also
     //   making the CARRY_IN=1 and Binvert) but at that time the CARRY_IN is always set
     // INCREMENT-by-ONE is easier by using the CARRY_IN to provide +1.
-    assign b_after_op_LSB    = {{WIDTH-1{1'b0}},y_after_op};  // {{WIDTH-1{1'b0}},1'b1}
+    assign b_after_op_LSB    = {{WIDTH-1{1'b0}},y_after_op};
     // So can we remove CLEAR and use LSB above when freeing up a mode? 
     assign b_after_op_CLEAR  = {WIDTH{1'b0}};
-    assign b_after_op_LSR    = {y_after_op,b[WIDTH-1:1]};	// not used
+    //assign b_after_op_LSR    = {y_after_op,b[WIDTH-1:1]};	// not used
 
-    wire           b_after_op_LSLLSR;
+    ///wire           b_after_op_LSLLSR;
 
     // When in LSLLSR mode want:
     //  ROR: CLEAR to invert to 0xff op=AND  (b_mode=LSLLSR, y_mode=MSBLSB,        b_inv=1)
     //  ASR: CLEAR to 0x00 op=OR             (b_mode=LSLLSR, y_mode=MSBLSB,        b_inv=0)
     //  LSR: CLEAR to 0x00 op=OR             (b_mode=LSLLSR, y_mode=NORM|ZERO|ONE, b_inv=0)
-    //  ROL: n/a op=SUM(add) with A==B Y=MSB (b_mode=ADD,    y_mode=MSBLSB,        b_inv=0)
+    //  ROL: n/a op=SUM(add) with A==B Y=MSB (b_mode=NORM,   y_mode=MSBLSB,        b_inv=0)
     //  LSL: n/a op=SUM(add) with A==B and Y (b_mode=NORM,   y_mode=NORM|ZERO|ONE, b_inv=0)
-    assign b_after_op_LSLLSR = b_inv ? b_after_op_CLEAR : b_after_op_NORMAL;
+    ///assign b_after_op_LSLLSR = b_inv ? b_after_op_CLEAR : b_after_op_NORMAL;
 
+    // TODO optimize this order, seems arbitrary, 2'b11 case is attached to special handling of a_after_op
     assign b_after_op = op[5] ?
       (op[4] ? b_after_op_CLEAR  : b_after_op_CLEAR) :     // 2'b11  :  2'b10
       (op[4] ? b_after_op_LSB    : b_after_op_NORMAL)      // 2'b01  :  2'b00
@@ -166,7 +165,7 @@ module tt_um_dlmiles_alu4 (
 
     assign a_after_op_LSR    = {y_after_op,a[WIDTH-1:1]};
 
-    assign a_after_op = (op[4] & op[5]) ? a_after_op_LSR : a;
+    assign a_after_op = (op[4] & op[5]) ? a_after_op_LSR : a;	// when shifting: special case
 
 
     alu4 #(

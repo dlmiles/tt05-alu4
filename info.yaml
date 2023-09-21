@@ -24,7 +24,7 @@ yaml_version: 4
 # Here is a great example: https://github.com/davidsiaw/tt02-davidsiaw-stackcalc/blob/38c5647f83aad2aec675d566aa3d67b98f0aac81/info.yaml
 documentation: 
   author:       "Darryl Miles"
-  title:        "ALU unit (4-bit ~19 operation)"
+  title:        "ALU unit (4-bit ~19 ops, 66 cells)"
   language:     "Verilog"
   description:  "Combinational Arithmetic Logic Unit"
 
@@ -34,7 +34,8 @@ documentation:
       Has ZERO and OVERFLOW outputs.
       Achieves operations in around 67 sky130 cells.
 
-      TODO
+      TODO Write Asciidoc for all states and modes.
+      Wite come page automation for each mode and the table.
       
       SUM
         ADD (logic-shift-left), ADC
@@ -55,7 +56,7 @@ documentation:
       ASR
       ROR
 
-      OP_A_MODE == 2'b00 SUM (ADD, SUB, ADC, SBC, LSL)
+      OP_A_MODE == 2'b00 SUM (ADD, SUB, ADC, SBC, LSL, ROL)
       OP_A_MODE == 2'b01 AND
       OP_A_MODE == 2'b10 OR
       OP_A_MODE == 2'b11 XOR
@@ -63,10 +64,10 @@ documentation:
       OP_Y_MODE == 2'b00 NORMAL
       OP_Y_MODE == 2'b01 SET (set to 1)
       OP_Y_MODE == 2'b10 CLEAR (set to 0)
-      OP_Y_MODE == 2'b11 MSB (taken from A[MSB])
+      OP_Y_MODE == 2'b11 LSBMSB (taken from A[MSB] or A[0])
 
       OP_B_MODE == 2'b00 NORMAL
-      OP_B_MODE == 2'b01 ONELSB (set B[LSB] from CARRY_IN, mainly for decrement by one use case)
+      OP_B_MODE == 2'b01 ONELSB (set B[LSB] from CARRY_IN, mainly for decrement by one use case, then also LSL)
       OP_B_MODE == 2'b10 CLEAR (all bits reset, was called Bzero)
       OP_B_MODE == 2'b11 LSR (logical shift right, with carry_in at MSB)
 
@@ -80,8 +81,18 @@ documentation:
 
       Moving LSR/ASR to A input.  Which removes the need for CPU ID (insn decoder) to manage this special case of
       supply main value on B and zero on A.
-
       Finally Adding ROR.  This is the icing and completes all the required functionality.
+      These 2 changes reduced the total cell count by one.
+
+      TODO Produce input and output constraints (truth table) of all good states it is required to meet.
+      Then have algorithm work the options on the control lines that obey some rules concerning setup, but allow
+      any arbitrary value to mean anything, to see if it is possible to reduce cell-count, equivalent-2input-gate-count,
+      area(maybe some cells are larger than others), reduce number of required control lines (which equates to better
+      utlization of ALU mode encoding space), propagation time.
+      This simulates the real world requirements, in that for a given A/B/Y input a specific output is required,
+      we need to setup the control lines to a set state for each mode, but everything else can be reworked and optimized.
+      There is near zero cost in CPU ID (decoder) for setting up control lines to the required state, the number and
+      layout/meaning of those control lines has been out best guess but maybe something more can be squeezed.
 
       There is a case for INC2/DEC2 optimization in ALU (due to 16bit opcode size and ~16bit address computation, an
       example use case is PC+2 return address computation, because maybe an opcode is 32bit as it encodes a far 16bit
